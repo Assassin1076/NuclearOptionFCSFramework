@@ -49,6 +49,8 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
         Logger.LogInfo("FlyByWire yaw patch applied.");
         FCSPatch_API.Instance = this;
         Logger.LogInfo($"FCS API assigned: {this.GetType().Assembly.FullName}");
+        FCSPatch_API.VEU_Instance = this;
+        Logger.LogInfo($"VectorEngineUnlocker API assigned: {this.GetType().Assembly.FullName}");
     }
     void Update()
     {

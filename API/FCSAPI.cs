@@ -51,5 +51,6 @@ namespace FCSAPI
     public static class FCSPatch_API
     {
         public static FCSModifier Instance;
+        public static VectorEngineUnlocker VEU_Instance; //从游戏实现上来说，飞控并未直接控制矢量引擎，且二者分属不同的组件类，似乎并不应该放在飞控框架内；但从功能上考量，二者关系十分密切，因此将此功能移动到飞控框架内
     }
 }

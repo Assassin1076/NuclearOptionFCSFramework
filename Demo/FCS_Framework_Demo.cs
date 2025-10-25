@@ -18,6 +18,7 @@ public class FCSSets : BaseUnityPlugin
     {
         if (done) return;
         var api = FCSAPI.FCSPatch_API.Instance;
+        var VEUapi = FCSAPI.FCSPatch_API.VEU_Instance;
         Logger.LogInfo($"API assembly seen: {typeof(FCSAPI.FCSPatch_API).Assembly.FullName}");
         if (api != null)
         {
@@ -32,7 +33,8 @@ public class FCSSets : BaseUnityPlugin
             api.SetFCS_Global(LoadedParams["KR67"], AircraftType.KR67);
             api.SetFCS_Global(LoadedParams["EW25"], AircraftType.EW25);
             api.SetFCS_Global(LoadedParams["SFB81"], AircraftType.SFB81);
-
+            VEUapi.SetVectoringMaxAirSpeed_Global(AircraftType.FS12, 9999f);
+            VEUapi.SetVectoringMaxAirSpeed_Global(AircraftType.KR67, 9999f);
             done = true;
         }
         else
