@@ -1,10 +1,15 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using FCSAPI;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
+using Unity.Collections;
 using UnityEngine;
-using Newtonsoft.Json;
+using ConfigurationManager;
 namespace FCSSets;
 
 [BepInPlugin("FCS_Framework_Demo", "FCS_Framework_Demo", "0.0.1")]
@@ -14,9 +19,17 @@ public class FCSSets : BaseUnityPlugin
     private static string ConfigPath => Path.Combine(Paths.PluginPath, "CustomFCS", "FlightControlConfig.json");
     private static Dictionary<string, FlightControlParam> LoadedParams = new();
     private bool done = false;
+
+    private ConfigEntry<KeyboardShortcut> ShowCounter { get; set; }
+        
+
+    void Awake()
+    {
+        ShowCounter = Config.Bind("Hotkeys", "Show FPS counter", new KeyboardShortcut(KeyCode.L, KeyCode.LeftControl));
+    }
     void Update()
     {
-        if (done) return;
+        if (done || !ShowCounter.Value.IsDown()) return;
         var api = FCSAPI.FCSPatch_API.Instance;
         var VEUapi = FCSAPI.FCSPatch_API.VEU_Instance;
         Logger.LogInfo($"API assembly seen: {typeof(FCSAPI.FCSPatch_API).Assembly.FullName}");
@@ -43,6 +56,8 @@ public class FCSSets : BaseUnityPlugin
         }
 
     }
+
+    
     private static void LoadConfig()
     {
         var api = FCSAPI.FCSPatch_API.Instance;
