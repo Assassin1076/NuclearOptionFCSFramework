@@ -11,7 +11,7 @@ using System.Reflection.Emit;
 using UnityEngine;
 namespace FCPatch;
 
-[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.1")]
+[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.3")]
 public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlocker
 {
     private readonly string[] targetPrefabNames =
