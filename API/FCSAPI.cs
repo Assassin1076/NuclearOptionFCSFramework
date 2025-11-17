@@ -35,6 +35,10 @@ namespace FCSAPI
         public float rollTrimLimit;
         public float yawTightness;
         public float rollTightness;
+        [Tooltip("Additional param from FCSFramwork, this provide a damper for yaw controls. " +
+            "When stabilityAssist is disabled, this param indicate the yaw stablizer how much yaw control it can use, limited to [0,1] range." +
+            "It is set to 0.1f by default")]
+        public float yawDamperLimit_Additional;
     }
 
     public enum AircraftType
@@ -51,6 +55,6 @@ namespace FCSAPI
     public static class FCSPatch_API
     {
         public static FCSModifier Instance;
-        public static VectorEngineUnlocker VEU_Instance; //从游戏实现上来说，飞控并未直接控制矢量引擎，且二者分属不同的组件类，似乎并不应该放在飞控框架内；但从功能上考量，二者关系十分密切，因此将此功能移动到飞控框架内
+        public static VectorEngineUnlocker VEU_Instance;
     }
 }
