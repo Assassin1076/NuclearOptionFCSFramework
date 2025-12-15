@@ -12,7 +12,7 @@ using UnityEngine;
 using ConfigurationManager;
 namespace FCSSets;
 
-[BepInPlugin("FCS_Framework_Demo", "FCS_Framework_Demo", "0.0.4")]
+[BepInPlugin("FCS_Framework_Demo", "FCS_Framework_Demo", "0.0.4-f1")]
 [BepInDependency("NuclearOptionFCSFramework", BepInDependency.DependencyFlags.HardDependency)]
 public class FCSSets : BaseUnityPlugin
 {

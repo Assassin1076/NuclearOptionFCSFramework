@@ -6,44 +6,39 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Eventing.Reader;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using UnityEngine;
+using static UnityEngine.GraphicsBuffer;
 namespace FCPatch;
 
-[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.4")]
+[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.4-f1")]
 public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlocker
 {
     private readonly string[] targetPrefabNames =
     {
-        "cockpit_F",
-        "cockpit",
         "Fighter1",
         "engine_R",
         "engine_L",
         "engine",
     };
-    private ControlsFilter FCS_CI22;
-    private ControlsFilter FCS_TA30;
-    private ControlsFilter FCS_A19;
-    private ControlsFilter FCS_FS12;
-    private ControlsFilter FCS_FS20;
-    private ControlsFilter FCS_KR67;
-    private ControlsFilter FCS_EW25;
-    private ControlsFilter FCS_SFB81;
 
     private Turbojet Engine_FS12;
     private Turbojet Engine_KR67_L;
     private Turbojet Engine_KR67_R;
 
-    private FlightControlParam Default_FCS_CI22;
-    private FlightControlParam Default_FCS_TA30;
-    private FlightControlParam Default_FCS_A19;
-    private FlightControlParam Default_FCS_FS12;
-    private FlightControlParam Default_FCS_FS20;
-    private FlightControlParam Default_FCS_KR67;
-    private FlightControlParam Default_FCS_EW25;
-    private FlightControlParam Default_FCS_SFB81;
+    private Dictionary<string, KeyValuePair<ControlsFilter, FlightControlParam>> FCS_Dict = new Dictionary<string, KeyValuePair<ControlsFilter, FlightControlParam>>();
+    private Dictionary<AircraftType, string> knownNamesDict = new Dictionary<AircraftType, string>{
+        {AircraftType.CI22, "CI-22" },
+        {AircraftType.TA30, "T/A-30" },
+        {AircraftType.A19, "A-19" },
+        {AircraftType.FS12, "FS-12" },
+        {AircraftType.FS20, "FS-20" },
+        {AircraftType.KR67, "KR-67" },
+        {AircraftType.EW25, "EW-25" },
+        {AircraftType.SFB81, "SFB-81" },
+    };
 
     private bool done = false;
     void Awake()
@@ -59,6 +54,23 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
     void Update()
     {
         if (done) return;
+        if(Encyclopedia.i == null)
+        {
+            Logger.LogInfo("Waiting for target prefabs to load...");
+            return;
+        }
+        foreach (AircraftDefinition aircraft in Encyclopedia.i.aircraft)
+        {
+            if (!FCS_Dict.ContainsKey(aircraft.code))
+            {
+                Logger.LogInfo($"FCS of {aircraft.code} found.");
+                
+                ControlsFilter tmp = aircraft.unitPrefab.GetComponent<Aircraft>().GetControlsFilter();
+                var custom = tmp.gameObject.AddComponent<FCSPatchData>();
+                custom.Aircraft_Type = "FS12";
+                FCS_Dict.Add(aircraft.code, new KeyValuePair<ControlsFilter, FlightControlParam>(tmp, GetFlightControParam(tmp.gameObject)));
+            }
+        }
         var allPrefabs = Resources.FindObjectsOfTypeAll<GameObject>();
         var matchedPrefabs = allPrefabs
             .Where(go => targetPrefabNames.Any(t => go.name.Equals(t, StringComparison.OrdinalIgnoreCase)))
@@ -79,7 +91,6 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
 
     private void ModifyPrefab(GameObject prefab)
     {
-        var flightcontrol = prefab.GetComponent<ControlsFilter>();
         var turbojet = prefab.GetComponent<Turbojet>();
         if (turbojet != null)
         {
@@ -107,131 +118,7 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
                 }
             }
         }
-        if (flightcontrol != null)
-        {
-            Type fctype = flightcontrol.GetType();
-
-            /*
-            考虑到游戏版本更迭时，FCS的名称，参数等都有可能变化，因此此处采用if-else嵌套以保证后续修改的方便，我知道这很蠢，但是先这样吧（逃
-            */
-
-            FieldInfo minSpeed = fctype.GetField("minSpeed", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (minSpeed != null)
-            {
-                string minSpeedStr = minSpeed.GetValue(flightcontrol).ToString();
-                if (minSpeedStr == 5f.ToString())
-                {
-                    Logger.LogInfo($"FCS of FS-12 found");
-                    FCS_FS12 = flightcontrol;
-                    var custom = prefab.AddComponent<FCSPatchData>();
-                    Default_FCS_FS12 = GetFlightControParam(prefab);
-                    custom.Aircraft_Type = "FS12";
-
-                }
-
-
-                else if (minSpeedStr == 25f.ToString() && prefab.name == "cockpit")
-                {
-                    Logger.LogInfo($"FCS of SFB-81 found");
-                    FCS_SFB81 = flightcontrol;
-                    var custom = prefab.AddComponent<FCSPatchData>();
-                    Default_FCS_SFB81 = GetFlightControParam(prefab);
-                    custom.Aircraft_Type = "SFB81";
-
-                }
-
-
-                else if (minSpeedStr == 25f.ToString() && prefab.name == "cockpit_F")
-                {
-                    Logger.LogInfo($"FCS of TA-30 found");
-                    FCS_TA30 = flightcontrol;
-                    var custom = prefab.AddComponent<FCSPatchData>();
-                    Default_FCS_TA30 = GetFlightControParam(prefab);
-                    custom.Aircraft_Type = "TA30";
-
-                }
-
-
-                else if (minSpeedStr == 10f.ToString() && prefab.name == "cockpit_F")
-                {
-                    Logger.LogInfo($"FCS of CI-22 found");
-                    FCS_CI22 = flightcontrol;
-                    var custom = prefab.AddComponent<FCSPatchData>();
-                    Default_FCS_CI22 = GetFlightControParam(prefab);
-                    custom.Aircraft_Type = "CI22";
-                }
-
-
-                else if (minSpeedStr == 0f.ToString() && prefab.name == "cockpit_F")
-                {
-                    Logger.LogInfo($"FCS of EW-25 found");
-                    FCS_EW25 = flightcontrol;
-                    var custom = prefab.AddComponent<FCSPatchData>();
-                    Default_FCS_EW25 = GetFlightControParam(prefab);
-                    custom.Aircraft_Type = "EW-25";
-
-                }
-
-
-                else if (minSpeedStr == 0f.ToString() && prefab.name == "cockpit")
-                {
-                    FieldInfo flyByWireField = typeof(ControlsFilter)
-                        .GetField("flyByWire", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-
-                    if (flyByWireField == null)
-                    {
-                        Debug.LogError("Cannot find field 'flyByWire' in ControlsFilter!");
-                        return;
-                    }
-                    object flyByWireInstance = flyByWireField.GetValue(flightcontrol);
-                    if (flyByWireInstance == null)
-                    {
-                        Debug.LogWarning("flyByWire is null!");
-                        return;
-                    }
-                    Type flyByWireType = flyByWireInstance.GetType();
-                    FieldInfo aoaField = flyByWireType.GetField("alphaLimiter", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (aoaField == null)
-                    {
-                        Debug.LogError("Cannot find field 'alphaLimiter' in FlyByWire!");
-                        return;
-                    }
-
-
-                    if (aoaField.GetValue(flyByWireInstance).ToString() == 27f.ToString())
-                    {
-                        Logger.LogInfo($"FCS of KR-67 found");
-                        FCS_KR67 = flightcontrol;
-                        var custom = prefab.AddComponent<FCSPatchData>();
-                        Default_FCS_KR67 = GetFlightControParam(prefab);
-                        custom.Aircraft_Type = "KR67";
-
-                    }
-
-
-                    else if (aoaField.GetValue(flyByWireInstance).ToString() == 25f.ToString())
-                    {
-                        Logger.LogInfo($"FCS of FS-20 found");
-                        FCS_FS20 = flightcontrol;
-                        var custom = prefab.AddComponent<FCSPatchData>();
-                        Default_FCS_FS20 = GetFlightControParam(prefab);
-                        custom.Aircraft_Type = "FS20";
-
-                    }
-
-                    else if (aoaField.GetValue(flyByWireInstance).ToString() == 12f.ToString())
-                    {
-                        Logger.LogInfo($"FCS of A-19 found");
-                        FCS_A19 = flightcontrol;
-                        var custom = prefab.AddComponent<FCSPatchData>();
-                        Default_FCS_A19 = GetFlightControParam(prefab);
-                        custom.Aircraft_Type = "A19";
-
-                    }
-                }
-
-            }
-        }
+        
     }
 
     private static void applyFlightControParam(FlightControlParam param, ControlsFilter fc)//用于修改飞机飞控参数
@@ -393,72 +280,32 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
     public int SetFCS_Global(FlightControlParam Param, AircraftType Target)
     {
         if (!done) throw new InvalidOperationException("NuclearOptionFCSFramework API has not been initialized yet.");
-        switch (Target)
+        if(knownNamesDict.TryGetValue(Target, out var FCS))
         {
-            case AircraftType.CI22:
-                applyFlightControParam(Param, FCS_CI22);
-                break;
-            case AircraftType.TA30:
-                applyFlightControParam(Param, FCS_TA30);
-                break;
-            case AircraftType.A19:
-                applyFlightControParam(Param, FCS_A19);
-                break;
-            case AircraftType.FS12:
-                applyFlightControParam(Param, FCS_FS12);
-                break;
-            case AircraftType.FS20:
-                applyFlightControParam(Param, FCS_FS20);
-                break;
-            case AircraftType.KR67:
-                applyFlightControParam(Param, FCS_KR67);
-                break;
-            case AircraftType.EW25:
-                applyFlightControParam(Param, FCS_EW25);
-                break;
-            case AircraftType.SFB81:
-                applyFlightControParam(Param, FCS_SFB81);
-                break;
-            default:
-                break;
+            if (FCS_Dict.TryGetValue(FCS, out var pair) ){
+                applyFlightControParam(Param, pair.Key);
+                return 0;
+            }
+
+            throw new NullReferenceException($"Cannot Find Proper Codename for {Target}");
         }
-        return 0;
+        throw new NullReferenceException($"Cannot Find Target FCS for {Target}");
     }
 
     public FlightControlParam GetDefaultFCS(AircraftType Aircraft)
     {
         if (!done) throw new InvalidOperationException("NuclearOptionFCSFramework API has not been initialized yet.");
-        FlightControlParam fcsdata = new FlightControlParam();
-        switch (Aircraft)
+
+        if (knownNamesDict.TryGetValue(Aircraft, out var FCS))
         {
-            case AircraftType.CI22:
-                fcsdata = Default_FCS_CI22;
-                break;
-            case AircraftType.TA30:
-                fcsdata = Default_FCS_TA30;
-                break;
-            case AircraftType.A19:
-                fcsdata = Default_FCS_A19;
-                break;
-            case AircraftType.FS12:
-                fcsdata = Default_FCS_FS12;
-                break;
-            case AircraftType.FS20:
-                fcsdata = Default_FCS_FS20;
-                break;
-            case AircraftType.KR67:
-                fcsdata = Default_FCS_KR67;
-                break;
-            case AircraftType.EW25:
-                fcsdata = Default_FCS_EW25;
-                break;
-            case AircraftType.SFB81:
-                fcsdata = Default_FCS_SFB81;
-                break;
-            default:
-                break;
+            if (FCS_Dict.TryGetValue(FCS, out var pair))
+            {
+                return pair.Value;
+            }
+
+            throw new NullReferenceException($"Cannot Find Proper Codename for {Aircraft}");
         }
-        return fcsdata;
+        throw new NullReferenceException($"Cannot Find Target FCS for {Aircraft}");
     }
 
     public FlightControlParam GetDefaultFCS(GameObject Target)
