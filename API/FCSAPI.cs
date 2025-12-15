@@ -45,6 +45,7 @@ namespace FCSAPI
     {
         CI22,
         TA30,
+        A19,
         FS12,
         FS20,
         KR67,

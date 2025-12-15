@@ -11,7 +11,7 @@ using System.Reflection.Emit;
 using UnityEngine;
 namespace FCPatch;
 
-[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.3")]
+[BepInPlugin("NuclearOptionFCSFramework", "FCS_Framework", "0.0.4")]
 public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlocker
 {
     private readonly string[] targetPrefabNames =
@@ -25,6 +25,7 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
     };
     private ControlsFilter FCS_CI22;
     private ControlsFilter FCS_TA30;
+    private ControlsFilter FCS_A19;
     private ControlsFilter FCS_FS12;
     private ControlsFilter FCS_FS20;
     private ControlsFilter FCS_KR67;
@@ -37,6 +38,7 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
 
     private FlightControlParam Default_FCS_CI22;
     private FlightControlParam Default_FCS_TA30;
+    private FlightControlParam Default_FCS_A19;
     private FlightControlParam Default_FCS_FS12;
     private FlightControlParam Default_FCS_FS20;
     private FlightControlParam Default_FCS_KR67;
@@ -216,6 +218,16 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
                         custom.Aircraft_Type = "FS20";
 
                     }
+
+                    else if (aoaField.GetValue(flyByWireInstance).ToString() == 12f.ToString())
+                    {
+                        Logger.LogInfo($"FCS of A-19 found");
+                        FCS_A19 = flightcontrol;
+                        var custom = prefab.AddComponent<FCSPatchData>();
+                        Default_FCS_A19 = GetFlightControParam(prefab);
+                        custom.Aircraft_Type = "A19";
+
+                    }
                 }
 
             }
@@ -241,8 +253,8 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
         singleArray1[13] = param.yawTightness;
         singleArray1[14] = param.rollTightness;
         fc.SetFlyByWireParameters(true, singleArray1);
-        FCSPatchData data =  fc.gameObject.GetComponent<FCSPatchData>();
-        if(data == null)
+        FCSPatchData data = fc.gameObject.GetComponent<FCSPatchData>();
+        if (data == null)
         {
             Debug.LogError("Warning: Error when trying to set additional params");
             data = fc.gameObject.AddComponent<FCSPatchData>();
@@ -297,7 +309,7 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
             Debug.LogError("Error while obtaining FCS data");
             return param;
         }
-        
+
 
         FieldInfo flyByWireField = typeof(ControlsFilter)
             .GetField("flyByWire", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
@@ -389,6 +401,9 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
             case AircraftType.TA30:
                 applyFlightControParam(Param, FCS_TA30);
                 break;
+            case AircraftType.A19:
+                applyFlightControParam(Param, FCS_A19);
+                break;
             case AircraftType.FS12:
                 applyFlightControParam(Param, FCS_FS12);
                 break;
@@ -421,6 +436,9 @@ public class FlightControlPatch : BaseUnityPlugin, FCSModifier, VectorEngineUnlo
                 break;
             case AircraftType.TA30:
                 fcsdata = Default_FCS_TA30;
+                break;
+            case AircraftType.A19:
+                fcsdata = Default_FCS_A19;
                 break;
             case AircraftType.FS12:
                 fcsdata = Default_FCS_FS12;
@@ -550,29 +568,16 @@ public static class Patch_FlyByWire_BypassYaw
                 var loadNum10 = codes[i + 1].Clone();  // ldloc.s V_10（num10）
 
                 var newInstr = new List<CodeInstruction>()
-            {
-                // 输入对象 inputs —— stfld 的目标
-                new CodeInstruction(OpCodes.Ldarg_2),
-
-                // -------- 参数1：num10 --------
-                loadNum10,
-
-                // -------- 参数2：oldYaw --------
-                new CodeInstruction(OpCodes.Ldarg_2),
-                new CodeInstruction(OpCodes.Ldfld, yawField),
-
-                // -------- 参数3：stabilityAssist --------
-                new CodeInstruction(OpCodes.Ldarg_S, 4),
-
-                // -------- 参数4：aircraft --------
-                new CodeInstruction(OpCodes.Ldarg_1),
-
-                // 调用 AdjustYaw(num10, oldYaw, stabilityAssist, aircraft)
-                new CodeInstruction(OpCodes.Call, adjustMethod),
-
-                // 为 inputs.yaw 赋值
-                new CodeInstruction(OpCodes.Stfld, yawField),
-            };
+                {
+                    new CodeInstruction(OpCodes.Ldarg_2),
+                    loadNum10,
+                    new CodeInstruction(OpCodes.Ldarg_2),
+                    new CodeInstruction(OpCodes.Ldfld, yawField),
+                    new CodeInstruction(OpCodes.Ldarg_S, 4),
+                    new CodeInstruction(OpCodes.Ldarg_1),
+                    new CodeInstruction(OpCodes.Call, adjustMethod),
+                    new CodeInstruction(OpCodes.Stfld, yawField),
+                };
 
                 codes.RemoveRange(i, 4);
                 codes.InsertRange(i, newInstr);
@@ -596,7 +601,7 @@ public static class YawExternalHandler
     public static float AdjustYaw(float num10, float oldYaw, bool stabilityAssist, Aircraft aircraft)
     {
         float ret;
-        
+
         if (stabilityAssist)
         {
             ret = -num10;
@@ -604,7 +609,7 @@ public static class YawExternalHandler
         else
         {
             var data = aircraft.cockpit.gameObject.GetComponent<FCSPatchData>();
-            if (data != null) 
+            if (data != null)
             {
                 float limit = Mathf.Clamp01(data.yawDamperLimit);
                 ret = oldYaw - Mathf.Clamp(num10, -limit, limit);

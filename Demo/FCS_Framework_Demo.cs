@@ -12,7 +12,7 @@ using UnityEngine;
 using ConfigurationManager;
 namespace FCSSets;
 
-[BepInPlugin("FCS_Framework_Demo", "FCS_Framework_Demo", "0.0.3")]
+[BepInPlugin("FCS_Framework_Demo", "FCS_Framework_Demo", "0.0.4")]
 [BepInDependency("NuclearOptionFCSFramework", BepInDependency.DependencyFlags.HardDependency)]
 public class FCSSets : BaseUnityPlugin
 {
@@ -21,7 +21,7 @@ public class FCSSets : BaseUnityPlugin
     private bool done = false;
 
     private ConfigEntry<KeyboardShortcut> ShowCounter { get; set; }
-        
+
 
     void Awake()
     {
@@ -29,7 +29,7 @@ public class FCSSets : BaseUnityPlugin
     }
     void Update()
     {
-        if (done || !ShowCounter.Value.IsDown()) return;
+        if (done && !ShowCounter.Value.IsDown()) return;
         var api = FCSAPI.FCSPatch_API.Instance;
         var VEUapi = FCSAPI.FCSPatch_API.VEU_Instance;
         Logger.LogInfo($"API assembly seen: {typeof(FCSAPI.FCSPatch_API).Assembly.FullName}");
@@ -41,6 +41,7 @@ public class FCSSets : BaseUnityPlugin
 
             api.SetFCS_Global(LoadedParams["CI22"], AircraftType.CI22);
             api.SetFCS_Global(LoadedParams["TA30"], AircraftType.TA30);
+            api.SetFCS_Global(LoadedParams["A19"], AircraftType.A19);
             api.SetFCS_Global(LoadedParams["FS12"], AircraftType.FS12);
             api.SetFCS_Global(LoadedParams["FS20"], AircraftType.FS20);
             api.SetFCS_Global(LoadedParams["KR67"], AircraftType.KR67);
@@ -57,7 +58,7 @@ public class FCSSets : BaseUnityPlugin
 
     }
 
-    
+
     private static void LoadConfig()
     {
         var api = FCSAPI.FCSPatch_API.Instance;
@@ -70,6 +71,7 @@ public class FCSSets : BaseUnityPlugin
                 {
                     ["CI22"] = api.GetDefaultFCS(AircraftType.CI22),
                     ["TA30"] = api.GetDefaultFCS(AircraftType.TA30),
+                    ["A19"] = api.GetDefaultFCS(AircraftType.A19),
                     ["FS12"] = api.GetDefaultFCS(AircraftType.FS12),
                     ["FS20"] = api.GetDefaultFCS(AircraftType.FS20),
                     ["KR67"] = api.GetDefaultFCS(AircraftType.KR67),
